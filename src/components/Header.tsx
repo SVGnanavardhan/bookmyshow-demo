@@ -1,22 +1,39 @@
-import { Search, MapPin, Menu, X } from "lucide-react";
+import { Search, MapPin, Menu, X, User, Ticket, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
       <div className="container mx-auto">
         <div className="flex items-center justify-between h-16 px-4">
           {/* Logo */}
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-lg">B</span>
             </div>
             <span className="font-display font-bold text-xl text-foreground hidden sm:block">
               BookMyShow
             </span>
-          </div>
+          </Link>
 
           {/* Search Bar - Desktop */}
           <div className="hidden md:flex flex-1 max-w-md mx-8">
@@ -37,9 +54,48 @@ const Header = () => {
               <span>Mumbai</span>
             </button>
 
-            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors">
-              Sign In
-            </button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2">
+                    <Avatar className="w-9 h-9 border-2 border-primary">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                        {user.email?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem className="flex items-center gap-2" disabled>
+                    <User className="w-4 h-4" />
+                    <span className="truncate">{user.email}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={() => navigate("/bookings")}
+                  >
+                    <Ticket className="w-4 h-4" />
+                    My Bookings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="flex items-center gap-2 cursor-pointer text-destructive"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button 
+                onClick={() => navigate("/auth")}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
+              >
+                Sign In
+              </button>
+            )}
 
             {/* Mobile Menu Toggle */}
             <button
@@ -66,12 +122,26 @@ const Header = () => {
               <MapPin className="w-4 h-4 text-primary" />
               <span className="text-sm">Mumbai</span>
             </div>
+            {user && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <button 
+                  onClick={() => {
+                    navigate("/bookings");
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <Ticket className="w-4 h-4" />
+                  My Bookings
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-6 px-4 py-3 border-t border-border/50">
-          <a href="#" className="text-sm font-medium text-primary">Movies</a>
+          <Link to="/" className="text-sm font-medium text-primary">Movies</Link>
           <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Stream</a>
           <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Events</a>
           <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Plays</a>
