@@ -1,15 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import MovieCard from "./MovieCard";
-
-interface Movie {
-  id: number;
-  title: string;
-  poster: string;
-  rating: number;
-  genre: string[];
-  language: string;
-}
+import type { Movie } from "@/hooks/useMovies";
 
 interface MovieCarouselProps {
   title: string;
@@ -29,6 +21,10 @@ const MovieCarousel = ({ title, subtitle, movies }: MovieCarouselProps) => {
       });
     }
   };
+
+  if (!movies || movies.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-8">

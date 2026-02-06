@@ -2,9 +2,32 @@ import Header from "@/components/Header";
 import HeroBanner from "@/components/HeroBanner";
 import MovieCarousel from "@/components/MovieCarousel";
 import Footer from "@/components/Footer";
-import { featuredMovie, nowShowingMovies, comingSoonMovies, trendingMovies } from "@/data/movies";
+import { useAvailableMovies, useUpcomingMovies } from "@/hooks/useMovies";
+import { Loader2 } from "lucide-react";
 
 const Index = () => {
+  const { data: availableMovies, isLoading: loadingAvailable } = useAvailableMovies();
+  const { data: upcomingMovies, isLoading: loadingUpcoming } = useUpcomingMovies();
+
+  const featuredMovie = availableMovies?.[0] || null;
+  const nowShowingMovies = availableMovies || [];
+  const comingSoonMovies = upcomingMovies || [];
+  
+  // Get top rated movies for trending
+  const trendingMovies = [...(availableMovies || [])]
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 8);
+
+  const isLoading = loadingAvailable || loadingUpcoming;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -23,17 +46,21 @@ const Index = () => {
             movies={nowShowingMovies}
           />
 
-          <MovieCarousel
-            title="Coming Soon"
-            subtitle="Upcoming releases you don't want to miss"
-            movies={comingSoonMovies}
-          />
+          {comingSoonMovies.length > 0 && (
+            <MovieCarousel
+              title="Coming Soon"
+              subtitle="Upcoming releases you don't want to miss"
+              movies={comingSoonMovies}
+            />
+          )}
 
-          <MovieCarousel
-            title="Trending This Week"
-            subtitle="Most popular movies right now"
-            movies={trendingMovies}
-          />
+          {trendingMovies.length > 0 && (
+            <MovieCarousel
+              title="Trending This Week"
+              subtitle="Most popular movies right now"
+              movies={trendingMovies}
+            />
+          )}
         </div>
 
         {/* Promotional Section */}
