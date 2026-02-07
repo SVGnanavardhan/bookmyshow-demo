@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useMovie } from "@/hooks/useMovies";
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateBooking, useProcessPayment } from "@/hooks/useBookings";
@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Star, Clock, Calendar, Play, ArrowLeft, Loader2, Check, CreditCard } from "lucide-react";
+import { Star, Clock, Calendar, Play, ArrowLeft, Loader2, Check, CreditCard, Minus, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const SEAT_PRICE = 250; // Price per seat in INR
@@ -20,13 +20,21 @@ const SEATS = [
   ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"],
 ];
 
+// Mock filled seats (in real app, this would come from database based on showtime)
+const FILLED_SEATS = ["A3", "A4", "B5", "B6", "B7", "C2", "C3", "D4", "D5", "E1", "E8"];
+
 const MovieDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: movie, isLoading } = useMovie(id || "");
   const createBooking = useCreateBooking();
   const processPayment = useProcessPayment();
+
+  // Get ticket count from URL or default to 1
+  const initialTicketCount = parseInt(searchParams.get("tickets") || "1", 10);
+  const [ticketCount, setTicketCount] = useState(Math.min(Math.max(initialTicketCount, 1), 10));
 
   const [showTheaterModal, setShowTheaterModal] = useState(false);
   const [showSeatModal, setShowSeatModal] = useState(false);
@@ -45,10 +53,38 @@ const MovieDetail = () => {
     return acc;
   }, {} as Record<string, string[]>) || {};
 
+  // Generate random filled seats based on showtime (for demo purposes)
+  const filledSeatsForShowtime = useMemo(() => {
+    if (!selectedShowtime) return FILLED_SEATS;
+    // Use showtime as seed for consistent filled seats per showtime
+    const seed = selectedShowtime.time.length + selectedShowtime.theater.length;
+    const allSeats = SEATS.flat();
+    const filledCount = 8 + (seed % 8); // 8-15 filled seats
+    const filled: string[] = [];
+    for (let i = 0; i < filledCount; i++) {
+      const index = (seed * (i + 1) * 7) % allSeats.length;
+      if (!filled.includes(allSeats[index])) {
+        filled.push(allSeats[index]);
+      }
+    }
+    return filled;
+  }, [selectedShowtime]);
+
   const handleSeatClick = (seat: string) => {
-    setSelectedSeats((prev) =>
-      prev.includes(seat) ? prev.filter((s) => s !== seat) : [...prev, seat]
-    );
+    // Don't allow selecting filled seats
+    if (filledSeatsForShowtime.includes(seat)) return;
+
+    setSelectedSeats((prev) => {
+      if (prev.includes(seat)) {
+        return prev.filter((s) => s !== seat);
+      }
+      // Limit selection to ticket count
+      if (prev.length >= ticketCount) {
+        toast.error(`You can only select ${ticketCount} seat${ticketCount > 1 ? "s" : ""}`);
+        return prev;
+      }
+      return [...prev, seat];
+    });
   };
 
   const handleBookNow = () => {
@@ -193,10 +229,33 @@ const MovieDetail = () => {
                 </div>
 
                 {movie.is_available && (
-                  <Button onClick={handleBookNow} size="lg" className="gap-2">
-                    <Play className="w-5 h-5 fill-current" />
-                    Book Tickets
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Ticket Count Selector */}
+                    <div className="flex items-center gap-3 bg-card/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-border">
+                      <Users className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Tickets:</span>
+                      <button
+                        onClick={() => setTicketCount((prev) => Math.max(prev - 1, 1))}
+                        className="w-8 h-8 rounded bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-8 text-center font-bold text-foreground text-lg">
+                        {ticketCount}
+                      </span>
+                      <button
+                        onClick={() => setTicketCount((prev) => Math.min(prev + 1, 10))}
+                        className="w-8 h-8 rounded bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <Button onClick={handleBookNow} size="lg" className="gap-2">
+                      <Play className="w-5 h-5 fill-current" />
+                      Book Tickets
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -313,6 +372,19 @@ const MovieDetail = () => {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Ticket Count Display */}
+            <div className="bg-accent/10 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-accent" />
+                <span className="text-foreground font-medium">
+                  Selecting {ticketCount} seat{ticketCount > 1 ? "s" : ""}
+                </span>
+              </div>
+              <Badge variant="secondary">
+                {selectedSeats.length} / {ticketCount} selected
+              </Badge>
+            </div>
+
             {/* Seat Selection */}
             <div>
               <h3 className="font-semibold text-foreground mb-3">Select Seats</h3>
@@ -323,27 +395,39 @@ const MovieDetail = () => {
                 <div className="space-y-2">
                   {SEATS.map((row, rowIndex) => (
                     <div key={rowIndex} className="flex justify-center gap-2">
-                      {row.map((seat) => (
-                        <button
-                          key={seat}
-                          onClick={() => handleSeatClick(seat)}
-                          className={`w-8 h-8 rounded text-xs font-medium transition-colors ${
-                            selectedSeats.includes(seat)
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-card border border-border hover:border-primary"
-                          }`}
-                        >
-                          {seat}
-                        </button>
-                      ))}
+                      {row.map((seat) => {
+                        const isFilled = filledSeatsForShowtime.includes(seat);
+                        const isSelected = selectedSeats.includes(seat);
+                        
+                        return (
+                          <button
+                            key={seat}
+                            onClick={() => handleSeatClick(seat)}
+                            disabled={isFilled}
+                            className={`w-8 h-8 rounded text-xs font-medium transition-all ${
+                              isFilled
+                                ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                                : isSelected
+                                ? "bg-primary text-primary-foreground border-2 border-primary"
+                                : "bg-card border-2 border-success text-success hover:bg-success/10"
+                            }`}
+                          >
+                            {seat}
+                          </button>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
 
                 <div className="flex justify-center gap-6 mt-6 text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-card border border-border" />
+                    <div className="w-4 h-4 rounded bg-card border-2 border-success" />
                     <span className="text-muted-foreground">Available</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-muted opacity-60" />
+                    <span className="text-muted-foreground">Filled</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded bg-primary" />
@@ -396,7 +480,7 @@ const MovieDetail = () => {
               </Button>
               <Button
                 onClick={handleConfirmBooking}
-                disabled={selectedSeats.length === 0 || createBooking.isPending}
+                disabled={selectedSeats.length !== ticketCount || createBooking.isPending}
                 className="flex-1"
               >
                 {createBooking.isPending ? (
@@ -404,6 +488,8 @@ const MovieDetail = () => {
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...
                   </>
+                ) : selectedSeats.length !== ticketCount ? (
+                  `Select ${ticketCount - selectedSeats.length} more seat${ticketCount - selectedSeats.length > 1 ? "s" : ""}`
                 ) : (
                   "Proceed to Payment"
                 )}
