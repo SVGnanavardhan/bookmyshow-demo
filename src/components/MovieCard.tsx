@@ -1,7 +1,8 @@
-import { Star, Heart } from "lucide-react";
+import { Star, Heart, Minus, Plus, Ticket } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Movie } from "@/hooks/useMovies";
+import { Button } from "@/components/ui/button";
 
 interface MovieCardProps {
   movie: Movie;
@@ -9,10 +10,32 @@ interface MovieCardProps {
 
 const MovieCard = ({ movie }: MovieCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
+  const [ticketCount, setTicketCount] = useState(1);
+  const [showTicketSelector, setShowTicketSelector] = useState(false);
   const navigate = useNavigate();
 
   const handleClick = () => {
     navigate(`/movie/${movie.id}`);
+  };
+
+  const handleBookClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowTicketSelector(true);
+  };
+
+  const handleConfirmTickets = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/movie/${movie.id}?tickets=${ticketCount}`);
+  };
+
+  const incrementTickets = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTicketCount((prev) => Math.min(prev + 1, 10));
+  };
+
+  const decrementTickets = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTicketCount((prev) => Math.max(prev - 1, 1));
   };
 
   return (
@@ -54,12 +77,49 @@ const MovieCard = ({ movie }: MovieCardProps) => {
           </div>
         )}
 
-        {/* Book Button on Hover */}
+        {/* Book Button / Ticket Selector on Hover */}
         {movie.is_available && (
           <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <button className="px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors">
-              Book
-            </button>
+            {!showTicketSelector ? (
+              <button 
+                onClick={handleBookClick}
+                className="px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+              >
+                Book
+              </button>
+            ) : (
+              <div 
+                className="bg-background/95 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-border"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-xs text-muted-foreground mb-2 text-center">Tickets</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={decrementTickets}
+                    className="w-6 h-6 rounded bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="w-6 text-center font-semibold text-foreground text-sm">
+                    {ticketCount}
+                  </span>
+                  <button
+                    onClick={incrementTickets}
+                    className="w-6 h-6 rounded bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={handleConfirmTickets}
+                  className="w-full h-7 text-xs"
+                >
+                  <Ticket className="w-3 h-3 mr-1" />
+                  Select Seats
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
