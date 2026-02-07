@@ -28,12 +28,22 @@ const MovieDetail = () => {
   const createBooking = useCreateBooking();
   const processPayment = useProcessPayment();
 
-  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showTheaterModal, setShowTheaterModal] = useState(false);
+  const [showSeatModal, setShowSeatModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [selectedShowtime, setSelectedShowtime] = useState<{ time: string; theater: string } | null>(null);
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Group showtimes by theater
+  const theaterShowtimes = movie?.showtimes?.reduce((acc, showtime) => {
+    if (!acc[showtime.theater]) {
+      acc[showtime.theater] = [];
+    }
+    acc[showtime.theater].push(showtime.time);
+    return acc;
+  }, {} as Record<string, string[]>) || {};
 
   const handleSeatClick = (seat: string) => {
     setSelectedSeats((prev) =>
@@ -47,7 +57,13 @@ const MovieDetail = () => {
       navigate("/auth");
       return;
     }
-    setShowBookingModal(true);
+    setShowTheaterModal(true);
+  };
+
+  const handleSelectShowtime = (theater: string, time: string) => {
+    setSelectedShowtime({ time, theater });
+    setShowTheaterModal(false);
+    setShowSeatModal(true);
   };
 
   const handleConfirmBooking = async () => {
@@ -73,7 +89,7 @@ const MovieDetail = () => {
       });
 
       setCurrentBookingId(booking.id);
-      setShowBookingModal(false);
+      setShowSeatModal(false);
       setShowPaymentModal(true);
     } catch (error) {
       toast.error("Failed to create booking");
@@ -214,36 +230,89 @@ const MovieDetail = () => {
 
       <Footer />
 
-      {/* Booking Modal */}
-      <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
+      {/* Theater & Showtimes Modal */}
+      <Dialog open={showTheaterModal} onOpenChange={setShowTheaterModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Book Tickets - {movie.title}</DialogTitle>
-            <DialogDescription>Select your showtime and seats</DialogDescription>
+            <DialogTitle className="text-2xl">
+              Theaters Showing {movie.title}
+            </DialogTitle>
+            <DialogDescription>
+              Select a theater and showtime to continue booking
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Showtime Selection */}
-            <div>
-              <h3 className="font-semibold text-foreground mb-3">Select Showtime</h3>
-              <div className="flex flex-wrap gap-2">
-                {movie.showtimes.map((showtime, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedShowtime(showtime)}
-                    className={`px-4 py-2 rounded-lg border transition-colors ${
-                      selectedShowtime?.time === showtime.time
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary border-border hover:border-primary"
-                    }`}
+            {Object.entries(theaterShowtimes).length > 0 ? (
+              <div className="space-y-4">
+                {Object.entries(theaterShowtimes).map(([theater, times]) => (
+                  <div
+                    key={theater}
+                    className="bg-card rounded-lg border border-border p-4"
                   >
-                    <p className="font-medium">{showtime.time}</p>
-                    <p className="text-xs opacity-80">{showtime.theater}</p>
-                  </button>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Play className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground text-lg">{theater}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {times.length} showtime{times.length > 1 ? "s" : ""} available
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {times.map((time, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          onClick={() => handleSelectShowtime(theater, time)}
+                          className="px-4 py-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                        >
+                          <Clock className="w-4 h-4 mr-2" />
+                          {time}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No showtimes available for this movie.</p>
+              </div>
+            )}
 
+            {/* Legend */}
+            <div className="bg-secondary/50 rounded-lg p-4">
+              <h4 className="font-medium text-foreground mb-2">How to book:</h4>
+              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Select a showtime from any theater above</li>
+                <li>Choose your preferred seats</li>
+                <li>Complete the payment</li>
+              </ol>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Seat Selection Modal */}
+      <Dialog open={showSeatModal} onOpenChange={setShowSeatModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Seats - {movie.title}</DialogTitle>
+            <DialogDescription>
+              {selectedShowtime && (
+                <span className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary">{selectedShowtime.theater}</Badge>
+                  <Badge variant="outline">{selectedShowtime.time}</Badge>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
             {/* Seat Selection */}
             <div>
               <h3 className="font-semibold text-foreground mb-3">Select Seats</h3>
@@ -287,6 +356,14 @@ const MovieDetail = () => {
             {/* Summary */}
             <div className="bg-card rounded-lg p-4 border border-border">
               <div className="flex justify-between items-center mb-2">
+                <span className="text-muted-foreground">Theater</span>
+                <span className="font-medium text-foreground">{selectedShowtime?.theater}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-muted-foreground">Showtime</span>
+                <span className="font-medium text-foreground">{selectedShowtime?.time}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-muted-foreground">Selected Seats</span>
                 <span className="font-medium text-foreground">
                   {selectedSeats.length > 0 ? selectedSeats.join(", ") : "None"}
@@ -304,20 +381,34 @@ const MovieDetail = () => {
               </div>
             </div>
 
-            <Button
-              onClick={handleConfirmBooking}
-              disabled={!selectedShowtime || selectedSeats.length === 0 || createBooking.isPending}
-              className="w-full"
-            >
-              {createBooking.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Proceed to Payment"
-              )}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSeatModal(false);
+                  setSelectedSeats([]);
+                  setShowTheaterModal(true);
+                }}
+                className="flex-1"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Change Showtime
+              </Button>
+              <Button
+                onClick={handleConfirmBooking}
+                disabled={selectedSeats.length === 0 || createBooking.isPending}
+                className="flex-1"
+              >
+                {createBooking.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  "Proceed to Payment"
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
