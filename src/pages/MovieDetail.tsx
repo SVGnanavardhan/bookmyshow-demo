@@ -2,13 +2,13 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useMovie } from "@/hooks/useMovies";
 import { useAuth } from "@/hooks/useAuth";
-import { useCreateBooking, useProcessPayment } from "@/hooks/useBookings";
+import { useCreateBooking } from "@/hooks/useBookings";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Star, Clock, Calendar, Play, ArrowLeft, Loader2, Check, CreditCard, Minus, Plus, Users } from "lucide-react";
+import { Star, Clock, Calendar, Play, ArrowLeft, Loader2, Minus, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const SEAT_PRICE = 250; // Price per seat in INR
@@ -30,7 +30,7 @@ const MovieDetail = () => {
   const { user } = useAuth();
   const { data: movie, isLoading } = useMovie(id || "");
   const createBooking = useCreateBooking();
-  const processPayment = useProcessPayment();
+  
 
   // Get ticket count from URL or default to 1
   const initialTicketCount = parseInt(searchParams.get("tickets") || "1", 10);
@@ -38,11 +38,8 @@ const MovieDetail = () => {
 
   const [showTheaterModal, setShowTheaterModal] = useState(false);
   const [showSeatModal, setShowSeatModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [selectedShowtime, setSelectedShowtime] = useState<{ time: string; theater: string } | null>(null);
-  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Group showtimes by theater
   const theaterShowtimes = movie?.showtimes?.reduce((acc, showtime) => {
@@ -124,31 +121,22 @@ const MovieDetail = () => {
         totalAmount: selectedSeats.length * SEAT_PRICE,
       });
 
-      setCurrentBookingId(booking.id);
+      // Redirect to payment page with booking details
+      const params = new URLSearchParams({
+        movieId: movie.id,
+        bookingId: booking.id,
+        seats: selectedSeats.join(","),
+        theater: selectedShowtime.theater,
+        showtime: selectedShowtime.time,
+      });
+      
       setShowSeatModal(false);
-      setShowPaymentModal(true);
+      navigate(`/payment?${params.toString()}`);
     } catch (error) {
       toast.error("Failed to create booking");
     }
   };
 
-  const handleProcessPayment = async () => {
-    if (!currentBookingId) return;
-
-    setIsProcessingPayment(true);
-    try {
-      await processPayment.mutateAsync(currentBookingId);
-      setShowPaymentModal(false);
-      setSelectedSeats([]);
-      setSelectedShowtime(null);
-      setCurrentBookingId(null);
-      navigate("/bookings");
-    } catch (error) {
-      // Error already handled in mutation
-    } finally {
-      setIsProcessingPayment(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -499,56 +487,6 @@ const MovieDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Payment Modal */}
-      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Complete Payment</DialogTitle>
-            <DialogDescription>Secure payment simulation</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            <div className="bg-card rounded-lg p-4 border border-border">
-              <div className="flex items-center gap-3 mb-4">
-                <CreditCard className="w-8 h-8 text-primary" />
-                <div>
-                  <p className="font-semibold text-foreground">Mock Payment</p>
-                  <p className="text-sm text-muted-foreground">No real charges will be made</p>
-                </div>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Seats</span>
-                  <span className="text-foreground">{selectedSeats.join(", ")}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-border">
-                  <span className="font-semibold text-foreground">Total</span>
-                  <span className="font-bold text-primary">₹{selectedSeats.length * SEAT_PRICE}</span>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              onClick={handleProcessPayment}
-              disabled={isProcessingPayment}
-              className="w-full"
-            >
-              {isProcessingPayment ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing Payment...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Pay ₹{selectedSeats.length * SEAT_PRICE}
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
