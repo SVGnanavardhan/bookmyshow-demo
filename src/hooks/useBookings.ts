@@ -60,21 +60,21 @@ export const useCreateBooking = () => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { data, error } = await supabase
-        .from("bookings")
-        .insert({
-          user_id: user.id,
-          movie_id: movieId,
-          seats,
-          showtime,
-          total_amount: totalAmount,
-          payment_status: "pending",
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('book_seats', {
+        p_user_id: user.id,
+        p_movie_id: movieId,
+        p_seats: seats,
+        p_showtime: showtime,
+        p_total_amount: totalAmount,
+      });
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        if (error.message.includes('already booked')) {
+          throw new Error('Selected seats are no longer available. Please choose different seats.');
+        }
+        throw error;
+      }
+      return { id: data };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
@@ -87,29 +87,26 @@ export const useProcessPayment = () => {
 
   return useMutation({
     mutationFn: async (bookingId: string) => {
-      // Simulate payment processing delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
-      // Simulate 90% success rate
-      const isSuccess = Math.random() > 0.1;
+      const response = await supabase.functions.invoke('process-payment', {
+        body: { bookingId },
+      });
 
-      if (!isSuccess) {
-        throw new Error("Payment failed. Please try again.");
+      if (response.error) {
+        throw new Error(response.error.message || "Payment failed. Please try again.");
       }
 
-      const { data, error } = await supabase
-        .from("bookings")
-        .update({ payment_status: "paid" })
-        .eq("id", bookingId)
-        .select()
-        .single();
+      const result = response.data;
+      if (!result.success) {
+        throw new Error(result.error || "Payment failed. Please try again.");
+      }
 
-      if (error) throw error;
-      return data;
+      return result.booking;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
-      // Mock email notification via toast
       toast.success("🎬 Booking Confirmed!", {
         description: `Your booking ${data.booking_code} has been confirmed. Check your email for details.`,
         duration: 5000,

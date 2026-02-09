@@ -84,11 +84,7 @@ const Auth = () => {
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes("User already registered")) {
-        toast.error("An account with this email already exists");
-      } else {
-        toast.error(error.message);
-      }
+      toast.error("Unable to create account. Please check your information or try signing in.");
     } else {
       toast.success("Account created! Please check your email to verify.");
     }
