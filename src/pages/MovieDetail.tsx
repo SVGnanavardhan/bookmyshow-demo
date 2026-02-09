@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCreateBooking } from "@/hooks/useBookings";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import DateShowtimeSelector from "@/components/DateShowtimeSelector";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -36,19 +37,12 @@ const MovieDetail = () => {
   const initialTicketCount = parseInt(searchParams.get("tickets") || "1", 10);
   const [ticketCount, setTicketCount] = useState(Math.min(Math.max(initialTicketCount, 1), 10));
 
-  const [showTheaterModal, setShowTheaterModal] = useState(false);
   const [showSeatModal, setShowSeatModal] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [selectedShowtime, setSelectedShowtime] = useState<{ time: string; theater: string } | null>(null);
 
-  // Group showtimes by theater
-  const theaterShowtimes = movie?.showtimes?.reduce((acc, showtime) => {
-    if (!acc[showtime.theater]) {
-      acc[showtime.theater] = [];
-    }
-    acc[showtime.theater].push(showtime.time);
-    return acc;
-  }, {} as Record<string, string[]>) || {};
+  // Keep theaterShowtimes for the inline selector
+  const theaterShowtimes = movie?.showtimes || [];
 
   // Generate random filled seats based on showtime (for demo purposes)
   const filledSeatsForShowtime = useMemo(() => {
@@ -84,20 +78,17 @@ const MovieDetail = () => {
     });
   };
 
-  const handleBookNow = () => {
+  const handleSelectShowtime = (theater: string, time: string) => {
     if (!user) {
       toast.error("Please sign in to book tickets");
       navigate("/auth");
       return;
     }
-    setShowTheaterModal(true);
-  };
-
-  const handleSelectShowtime = (theater: string, time: string) => {
     setSelectedShowtime({ time, theater });
-    setShowTheaterModal(false);
+    setSelectedSeats([]);
     setShowSeatModal(true);
   };
+
 
   const handleConfirmBooking = async () => {
     if (!selectedShowtime || selectedSeats.length === 0 || !movie) {
@@ -239,10 +230,6 @@ const MovieDetail = () => {
                       </button>
                     </div>
                     
-                    <Button onClick={handleBookNow} size="lg" className="gap-2">
-                      <Play className="w-5 h-5 fill-current" />
-                      Book Tickets
-                    </Button>
                   </div>
                 )}
               </div>
@@ -256,93 +243,18 @@ const MovieDetail = () => {
           <p className="text-muted-foreground max-w-3xl">{movie.description}</p>
         </section>
 
-        {/* Showtimes */}
-        {movie.is_available && movie.showtimes.length > 0 && (
+        {/* Date & Showtime Selector */}
+        {movie.is_available && theaterShowtimes.length > 0 && (
           <section className="container mx-auto px-4 py-8">
-            <h2 className="text-xl font-semibold text-foreground mb-4">Showtimes</h2>
-            <div className="flex flex-wrap gap-3">
-              {movie.showtimes.map((showtime, index) => (
-                <div
-                  key={index}
-                  className="px-4 py-3 rounded-lg bg-card border border-border"
-                >
-                  <p className="font-semibold text-foreground">{showtime.time}</p>
-                  <p className="text-sm text-muted-foreground">{showtime.theater}</p>
-                </div>
-              ))}
-            </div>
+            <DateShowtimeSelector
+              showtimes={theaterShowtimes}
+              onSelectShowtime={handleSelectShowtime}
+            />
           </section>
         )}
       </main>
 
       <Footer />
-
-      {/* Theater & Showtimes Modal */}
-      <Dialog open={showTheaterModal} onOpenChange={setShowTheaterModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">
-              Theaters Showing {movie.title}
-            </DialogTitle>
-            <DialogDescription>
-              Select a theater and showtime to continue booking
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            {Object.entries(theaterShowtimes).length > 0 ? (
-              <div className="space-y-4">
-                {Object.entries(theaterShowtimes).map(([theater, times]) => (
-                  <div
-                    key={theater}
-                    className="bg-card rounded-lg border border-border p-4"
-                  >
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Play className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground text-lg">{theater}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {times.length} showtime{times.length > 1 ? "s" : ""} available
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {times.map((time, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          onClick={() => handleSelectShowtime(theater, time)}
-                          className="px-4 py-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                        >
-                          <Clock className="w-4 h-4 mr-2" />
-                          {time}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No showtimes available for this movie.</p>
-              </div>
-            )}
-
-            {/* Legend */}
-            <div className="bg-secondary/50 rounded-lg p-4">
-              <h4 className="font-medium text-foreground mb-2">How to book:</h4>
-              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Select a showtime from any theater above</li>
-                <li>Choose your preferred seats</li>
-                <li>Complete the payment</li>
-              </ol>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Seat Selection Modal */}
       <Dialog open={showSeatModal} onOpenChange={setShowSeatModal}>
@@ -459,7 +371,8 @@ const MovieDetail = () => {
                 onClick={() => {
                   setShowSeatModal(false);
                   setSelectedSeats([]);
-                  setShowTheaterModal(true);
+                  setShowSeatModal(false);
+                  setSelectedSeats([]);
                 }}
                 className="flex-1"
               >
