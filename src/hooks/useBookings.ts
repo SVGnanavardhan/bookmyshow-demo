@@ -60,7 +60,7 @@ export const useCreateBooking = () => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { data, error } = await supabase.rpc('book_seats', {
+      const { data, error } = await (supabase.rpc as any)('book_seats', {
         p_user_id: user.id,
         p_movie_id: movieId,
         p_seats: seats,
