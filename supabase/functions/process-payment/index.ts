@@ -70,15 +70,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (booking.payment_status === 'paid') {
-      return new Response(JSON.stringify({ error: 'Booking already paid' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (booking.payment_status !== 'pending') {
-      return new Response(JSON.stringify({ error: 'Booking cannot be paid in current status' }), {
+    if (booking.payment_status === 'paid' || booking.payment_status !== 'pending') {
+      return new Response(JSON.stringify({ error: 'Payment cannot be processed' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -94,7 +87,7 @@ Deno.serve(async (req) => {
         .update({ payment_status: 'failed' })
         .eq('id', bookingId);
 
-      return new Response(JSON.stringify({ error: 'Payment failed. Please try again.' }), {
+      return new Response(JSON.stringify({ error: 'Payment failed' }), {
         status: 402,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -109,14 +102,14 @@ Deno.serve(async (req) => {
       .single();
 
     if (updateError) {
-      console.error('Error updating booking:', updateError);
-      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      console.error('Payment update error');
+      return new Response(JSON.stringify({ error: 'Payment processing failed' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Payment processed for booking ${bookingId} by user ${userId}`);
+    console.log('Payment processed successfully');
 
     return new Response(
       JSON.stringify({ success: true, booking: updatedBooking }),
@@ -126,7 +119,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Payment processing error:', error);
+    console.error('Payment processing error');
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       {

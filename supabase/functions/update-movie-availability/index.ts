@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`Admin ${userId} triggered movie availability update`);
+    console.log('Movie availability update triggered');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const today = new Date().toISOString().split('T')[0];
@@ -91,9 +91,9 @@ Deno.serve(async (req) => {
           .eq('id', movie.id);
 
         if (updateError) {
-          console.error(`Error updating movie ${movie.title}:`, updateError);
+          console.error('Error updating movie');
         } else {
-          console.log(`Updated movie: ${movie.title} - now available`);
+          console.log('Movie updated successfully');
         }
       }
     }
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in update-movie-availability:', error);
+    console.error('Movie availability update failed');
     return new Response(
       JSON.stringify({ success: false, error: 'Internal server error' }),
       { 
