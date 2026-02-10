@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# Welcome to my Bookmyshow Demo project by using lovable 
 
 ## Project info
 
