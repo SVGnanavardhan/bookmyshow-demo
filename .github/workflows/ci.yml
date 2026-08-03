@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - CODE_WARRIORS_GNANAVARDHAN_AI_Fix
+      - 'CODE_WARRIORS_GNANAVARDHAN_AI_Fix_*'
   pull_request:
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run tests
         run: npm test
